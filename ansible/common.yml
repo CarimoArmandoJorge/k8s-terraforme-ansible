@@ -1,0 +1,74 @@
+---
+- name: Preparar servidores Kubernetes
+  hosts: k8s_cluster
+  become: true
+ 
+  tasks:
+ 
+    - name: Atualizar cache do APT
+      apt:
+        update_cache: true
+        cache_valid_time: 3600
+ 
+    - name: Instalar pacotes básicos
+      apt:
+        name:
+          - curl
+          - wget
+          - apt-transport-https
+          - ca-certificates
+          - gpg
+          - containerd
+        state: present
+ 
+    - name: Desabilitar swap imediatamente
+      command: swapoff -a
+ 
+    - name: Desabilitar swap no fstab
+      replace:
+        path: /etc/fstab
+        regexp: '^(\s*[^#]\S+\s+\S+\s+swap\s+.*)$'
+        replace: '# \1'
+ 
+    - name: Carregar módulo overlay
+      community.general.modprobe:
+        name: overlay
+        state: present
+ 
+    - name: Carregar módulo br_netfilter
+      community.general.modprobe:
+        name: br_netfilter
+        state: present
+ 
+    - name: Configurar parâmetros do kernel para Kubernetes
+      copy:
+        dest: /etc/sysctl.d/k8s.conf
+        mode: '0644'
+        content: |
+          net.bridge.bridge-nf-call-iptables = 1
+          net.bridge.bridge-nf-call-ip6tables = 1
+          net.ipv4.ip_forward = 1
+ 
+    - name: Aplicar parâmetros do kernel
+      command: sysctl --system
+ 
+    - name: Garantir diretório do containerd
+      file:
+        path: /etc/containerd
+        state: directory
+        mode: '0755'
+ 
+    - name: Gerar configuração padrão do containerd
+      shell: containerd config default > /etc/containerd/config.toml
+ 
+    - name: Habilitar SystemdCgroup no containerd
+      replace:
+        path: /etc/containerd/config.toml
+        regexp: 'SystemdCgroup = false'
+        replace: 'SystemdCgroup = true'
+ 
+    - name: Reiniciar containerd
+      systemd:
+        name: containerd
+        state: restarted
+        enabled: true

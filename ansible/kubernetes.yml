@@ -1,0 +1,50 @@
+- name: Instalar Kubernetes
+  hosts: k8s_cluster
+  become: true
+ 
+  tasks:
+ 
+    - name: Criar diretório da chave do repositório Kubernetes
+      file:
+        path: /etc/apt/keyrings
+        state: directory
+        mode: '0755'
+ 
+    - name: Baixar chave do repositório Kubernetes
+      get_url:
+        url: https://pkgs.k8s.io/core:/stable:/v1.33/deb/Release.key
+        dest: /etc/apt/keyrings/kubernetes-apt-keyring.asc
+        mode: '0644'
+ 
+    - name: Adicionar repositório Kubernetes
+      apt_repository:
+        repo: "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.asc] https://pkgs.k8s.io/core:/stable:/v1.33/deb/ /"
+        state: present
+        filename: kubernetes
+ 
+    - name: Atualizar cache do APT
+      apt:
+        update_cache: true
+ 
+    - name: Instalar kubelet kubeadm e kubectl
+      apt:
+        name:
+          - kubelet
+          - kubeadm
+          - kubectl
+        state: present
+ 
+    - name: Impedir atualização automática dos componentes Kubernetes
+      dpkg_selections:
+        name: "{{ item }}"
+        selection: hold
+      loop:
+        - kubelet
+        - kubeadm
+        - kubectl
+ 
+    - name: Habilitar kubelet
+      systemd:
+        name: kubelet
+        enabled: true
+ 

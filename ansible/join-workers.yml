@@ -1,0 +1,17 @@
+- name: Entrar Workers no cluster Kubernetes
+  hosts: workers
+  become: true
+ 
+  tasks:
+ 
+    - name: Entrar no cluster
+      command: >
+        kubeadm join 10.0.1.162:6443
+        --token 05yr6y.14ajevkhgd1vi754
+        --discovery-token-ca-cert-hash sha256:a6fe8711a7bdb7927a975660c861526c550a34c7163bcb7ed2cb84f8c5e0cc9f
+      register: kubeadm_join
+      changed_when: "'This node has joined the cluster' in kubeadm_join.stdout"
+      failed_when:
+        - kubeadm_join.rc != 0
+        - "'already exists' not in kubeadm_join.stderr"
+ 
